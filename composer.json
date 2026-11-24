@@ -1,0 +1,37 @@
+{
+    "name": "checknetworks/api",
+    "description": "The official PHP client for the Check Networks API.",
+    "type": "library",
+    "keywords": ["checknetworks", "nbn", "opticomm", "sip", "api", "sdk"],
+    "homepage": "https://help.checknetworks.tools/api/overview/",
+    "license": "MIT",
+    "support": {
+        "email": "support@checknetworks.com.au",
+        "docs": "https://api.checknetworks.tools/docs"
+    },
+    "require": {
+        "php": ">=8.1",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "guzzlehttp/guzzle": "^7.3",
+        "guzzlehttp/psr7": "^2.0"
+    },
+    "require-dev": {
+        "pestphp/pest": "^3.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "CheckNetworks\\Api\\": "src/"
+        }
+    },
+    "scripts": {
+        "test": "pest"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}
