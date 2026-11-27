@@ -13,9 +13,9 @@
 /**
  * Check Networks API
  *
- * The Check Networks API lets you run your services from your own systems: qualify and order NBN and Opticomm data services, manage phone numbers, SIP trunks and SMS, raise support tickets, receive webhooks, and read your account and billing.   The reference is published at `https://api.checknetworks.tools/docs`. The OpenAPI document behind it, for generating a client, is at `https://api.checknetworks.tools/docs/openapi.json`.   Endpoints marked **Coming Soon** are published early so you can build against them. Until they go live they answer `501 - Not Implemented`.  # Getting Started  1. **Create an API Client** in the Wholesale Portal, under Company    Settings → Integrations → API Keys, and choose the scopes it may use.    The Client Secret is shown once. 2. **Request an access token** from `POST /oauth/token` with    `grant_type=client_credentials`, your `client_id` and `client_secret`,    and the scopes you need as a space-separated `scope`    (e.g. `scope=data:read tickets:read`). 3. **Call `GET /ping`** with the token to confirm it works and see the    key, account and scopes it carries, the address we saw and which    environment answered. 4. **Send the token on every request**:    `Authorization: Bearer <access token>`. Tokens last one hour; request a    new one when it expires.  The API is for Check Networks customers. If you do not have access to the Wholesale Portal, contact your Account Manager or our Sales Team.  **Build against the sandbox** (`https://api.checknetworks.dev/v2`): a separate copy of the platform, with its own account, keys and test addresses, where nothing reaches a carrier. Orders there move through the carriers' own steps in minutes and fire your webhooks as production does. Ask your Account Manager for one. In production every call runs against your real account, and a carrier write places a real order. A few calls that act on our live network answer `501` in the sandbox.  To test your retries, send `CN-Sandbox-Simulate: 429`, `502` or `503` on any sandbox call: it answers that status in the usual error shape, with `Retry-After: 60` on a 429 or 503, and runs nothing. Production ignores the header.  # Scopes  Each endpoint lists the scope it needs. A token carries only the scopes you asked for **and** your API Client is allowed; any others are dropped without an error. With no `scope` at all, a token carries none and every endpoint refuses it. The `scope` field of the token response is the record of what a token carries, so check it first when you get a `403 - Forbidden`.  Every data endpoint, under `/nbn`, `/opticomm` and `/data` alike, uses the `data:*` scopes.  # Conventions  - Field names are `camelCase`. - Money is a decimal string in Australian dollars (`\"49.95\"`), with a   `currency` field alongside (always `AUD` today). - A single object comes back in `result`, and a list in `results`. - Every list of your own records takes `page` and `perPage` and returns   `total`, `page` and `perPage` with `results`. `perPage` defaults to   **50** and runs from 1 to **200**; a value outside that, or a `page`   that is not a whole number of at least 1, is `422 - Unprocessable   Entity` naming the field, never quietly changed. - Lists take `sort` (a field the list names, `-` in front for   descending), `q` (a case-insensitive search, at most 100 characters,   over the fields the list names), `updatedSince`, `createdFrom` and   `createdTo` (an ISO 8601 date or date-time; a date alone is that day in   UTC, or in your zone when you send `CN-Time-Zone`). A filter such as `status` takes one or several values,   comma-separated, in any case. An unknown sort field or filter value is   `422`. - Lists that grow while you read them (payments, tickets, SMS, webhook   deliveries, call records) also return `nextCursor`, newest first: pass   it back as `cursor` until it is `null`. A cursor page carries `perPage`,   `nextCursor` and `results` only. A sorted list has no cursor. - An end user is named by its number, as `endUser`, everywhere a   response or a request names one; where a response shows its name too,   that is `endUserName`. - `expand` inlines a related record in full where a list or read names   it, such as `expand=endUser` on your services, which adds   `endUserDetail`. - Every time is UTC unless you ask for your own zone: send   `CN-Time-Zone` with an IANA zone name, such as `Australia/Perth`, and   every time in a JSON response comes in that zone with its offset   (`2026-11-22T09:30:00+08:00`), a date alone in a list filter is that day   in that zone, and the response echoes the header. A name that is not a   zone is `422` naming `CN-Time-Zone`. Downloads (CSV, NDJSON, PDF),   webhook deliveries and the carrier-shaped `/nbn` and `/opticomm` bodies   stay as they are. What you set comes back as you set it, whatever it   looks like: `metadata`, `externalRef`, your references   (`orderReference`, `customerReference`, `customerRef`,   `salesReference`, `paymentReference`, `paidReference`) and your own   `name`, `description`, `note` and `notes` text. - A create answers `201 - Created` with the new resource. Every other   success answers `200 - OK`.  **Carrier-shaped endpoints.** Some `/nbn` and `/opticomm` endpoints mirror the carrier's own API, so an integration written for the carrier works here unchanged. These return the carrier's own bodies and status codes, without the `result` wrapper, and are not paginated: the `/nbn` service qualifications (`single_site`, `fibre_uplift`, `enterprise_ethernet`), `/nbn/address/search`, `/nbn/address/geocode`, `/nbn/address/{locId}`, `/nbn/planning/{locId}`, the `/nbn/product_qualification` `service_types` and `bandwidths`, the diagnostic test catalogue and Opticomm `productOrders`. Our account identifiers are removed and links point at this API. The `/nbn` ones also take Kinetix's query parameter names (`loc_id`, `service_ref`, `customer_authority_date`, `location_ref`, `service_type`) as well as ours. Lists of your own records under those paths, such as your NBN inventory, are paginated as usual. Where we add to a carrier's shape, the field or parameter says \"Ours\": the premises `address` and `fibreBuildCategory` on an EE quote, and the search, filters, sort and paging of `GET /nbn/quotes`.  # Errors  Errors use standard HTTP status codes. The body tells you more:  - **`code`** says what went wrong, such as `not_found`,   `key_revoked` or `duplicate_order`. Your code should check this. The   full list is on the `Error` schema. - **`reason`** explains it in words, for a person to read. The wording   can change. - **`messageId`** is this request's id, the same as the `CN-Message-Id`   header. Quote it to Support. - **`docUrl`** links to the code's entry in the   [error reference](https://help.checknetworks.tools/api/errors/),   which says what to do about it. - **`fields`** appears when the request failed validation, and names   each input that was wrong. - **`carrierCode`** appears when nbn or Opticomm refused the request,   and holds their own error code.  | Status | Meaning | |---|---| | `400` | The body could not be parsed, or a required header is missing. On the carrier-shaped `/nbn` and `/opticomm` endpoints, also a bad input, as the carrier answers. | | `401` | The access token is missing, expired or invalid, or its key is past its end date (`key_expired`). | | `403` | Refused: `code` says why, such as `missing_scope`, `key_revoked`, `ip_not_allowed` or `account_suspended`. | | `404` | Not found. We give the same answer for something on another account. | | `405` | The path exists, but not for this method. | | `409` | The resource isn't in a state that allows this right now. | | `422` | An input was wrong (`validation_failed`, with `fields` naming it), or the request was refused on its merits. `reason` says why. | | `429` | Too many requests. See Rate Limits. | | `501` | The endpoint is Coming Soon, or isn't offered in the sandbox. Only the operations that list it can answer it. | | `5xx` | A problem on our side, or with the carrier. Try again shortly. |  Every error, an unknown path included, comes back as this JSON body, whatever your `Accept` header says.  # Idempotency  A write (`POST`, `PUT`, `PATCH` or `DELETE`) can carry an `Idempotency-Key` header so that retrying it never does the work twice, for example after a timeout where you never saw the response. Use a new unique value, such as a UUID, for each operation:  `Idempotency-Key: 1f8e6b1a-9c4d-4a2e-8b3a-2f6d0c9e7a51`  The key is required wherever a repeated request could do real harm, in three groups.  **Calls that reach a carrier**, where a repeat could place a second real order: placing, answering, changing or cancelling an order (`/data/orders`, `/nbn/orders/...`, `/opticomm/productOrders`), submitting a bundle (`POST /bundles/{id}/submit`), ordering a number (`POST /numbers`), reserving, changing or cancelling a technician appointment, the carrier service tests and health reports (and `POST /data/services/{ref}/sessions/refresh`, `POST /data/services/{ref}/diagnostics` and `POST /data/radius/{ref}/session-check`), and Opticomm's `static_ip` GET. These share a limit of **30 per minute per account**, on top of the general rate limit. A replay of a stored answer does not count against it. A batch qualification (`POST /data/sq/batches`) asks the carrier once for each row, so it needs the key too, but is not on that limit.  **Calls that bill or send**, where a repeat could charge you twice or send twice: creating a trunk (`POST /trunks`), ordering a fax plan (`POST /fax/plans`), sending a fax (`POST /fax/documents`), requesting an NBN quote (`POST /nbn/quotes`), sending an SMS (`POST /sms`), ordering colocation (`POST /colocation/orders`), and rotating a webhook secret (`PATCH /webhooks/{webhookId}` with `rotateSecret: true`).  **Writes on our side that must not run twice**: recording an end user's usage (`POST /end-users/{endUser}/usage` and `POST /usage/batch`), which would bill them twice; importing end users (`POST /end-users/imports`), which would import the file twice; rotating your own API key (`POST /account/api-keys/self/rotate`), which would rotate it twice; a bulk change to numbers (`POST /numbers/bulk`), which could release them twice; and hanging up a call (`POST /voice/calls/{callId}/hangup`), which could hang up a second one.  Each of these operations lists the header as required (the webhook secret rotation says so in its description, as it needs the key only with `rotateSecret`). Without a key they all answer `400` with the same body.  Every other write (users, tickets, webhooks, a single number, RADIUS, provisioning and the rest) accepts the key and honours it the same way, but runs without one.  How a key behaves:  | You send | You get | |---|---| | A new key | The request runs, and its response is stored. | | The same key and the same request | The stored response, with `Idempotent-Replayed: true`. Nothing runs again. | | The same key with a different request | `422` `idempotency_key_reused`. | | The same key while its first request is still running | `409` `idempotency_in_progress`, with `Retry-After`. Retry then. | | A key longer than 255 characters | `400`. |  A `5xx` is stored like any other response, so retrying with the same key returns the same `5xx` rather than running the write again. A request that timed out may still have **succeeded**, so we keep the key spent rather than risk a duplicate. Once you know the operation did not happen, send it under a **new** key. If a key keeps answering `409` long after the first call, contact Support: we never release a key on our own, because we can't tell a slow request from one that stopped.  Keys belong to your API Client and are kept for 30 days. A write sent without the header, where it is optional, is not deduplicated.  # Rate Limits  Each API Client may make **120 requests per minute** across the whole API, and your account **600 per minute** across all its API Clients together, so adding clients does not add capacity. Over either, requests answer `429 - Too Many Requests` until the minute passes. If you need more, contact Support: we can raise your account's figure.  Three groups of calls have a lower limit of their own, per account, on top of those. Each of these operations names its limit in its description, as `Limit: ... (carrier write)`, `(webhook send)` or `(domain verify)`:  | Calls | Limit | |---|---| | Carrier-reaching writes (listed under Idempotency) | 30 per minute. A replay of a stored answer does not count. | | Webhook test, redeliver and replay-dead, and sending an event again (`POST /events/{eventId}/deliveries`) | 10 per minute, shared | | Verifying an end-user portal domain | 5 per minute |  `POST /end-users/lookup` allows 20 per minute for each API key, and says so as `Limit: 20 per minute for the key.`  `POST /oauth/token` has its own limit: **30 per minute for each `client_id` from one address**, so systems behind one NAT do not share it, and 120 per minute from one address whatever the `client_id`.  Every response carries the limit that will stop you first, whichever of these it is:  | Header | What it says | |---|---| | `X-RateLimit-Limit` | The calls that limit allows in its minute. | | `X-RateLimit-Remaining` | The calls you have left in it. | | `X-RateLimit-Reset` | When it starts again, as a Unix time. | | `Retry-After` | On a `429` only: the seconds to wait before retrying. |  A `429` always means a rate: wait and retry. A cap on what you hold, such as the 5 open install reservations, answers `409` instead, because waiting does not change it.  # Versioning  The current version is **v2**, at `/v2` (`https://api.checknetworks.tools/v2/account`). Every path also answers without the prefix (`https://api.checknetworks.tools/account`), and those unprefixed paths mean v2 **for good**: a later version gets its own prefix (`/v3`) and never changes what an unprefixed call does.  Every response, errors included, names the version that answered:  ``` API-Version: 2 ```  There is no `/v1` here. v1 is the legacy API at `api.checknetworks.au`, a separate platform being retired over time. If you still use it, talk to us about moving across.  **What counts as a breaking change.** Within v2 we only add: a new endpoint, a new optional parameter, a new field in a response, a new webhook event type or a new error `code`. Build your client to ignore fields it does not know. Removing or renaming a field, endpoint or parameter, changing a field's type or meaning, making an optional input required, or refusing a request we used to accept is breaking, and happens only through the deprecation below or a new version.  # Deprecation  Nothing is deprecated today. When an endpoint or field is to be retired, you get **at least 12 months' notice** before it stops working. We tell you three ways: an entry here and in the changelog saying what to use instead, an email to your account, and three headers on every response from the call:  ``` Deprecation: @1798761599 Sunset: Fri, 31 Dec 2027 23:59:59 GMT Link: <https://api.checknetworks.tools/docs#section/Deprecation>; rel=\"deprecation\"; type=\"text/html\" ```  The `Sunset` is at least 12 months after the `Deprecation`. The one exception is a security fix: when keeping a call would put accounts at risk, we may retire it sooner, and say why.  | Header | What it says | |---|---| | `Deprecation` | When it was deprecated: `@` and a Unix timestamp ([RFC 9745](https://www.rfc-editor.org/rfc/rfc9745.html)). | | `Sunset` | The last moment it answers, as an HTTP date ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594.html)). After that it answers `404`. | | `Link` | This section, which says what to use instead. |  It keeps working normally until the `Sunset`. We suggest logging a warning whenever a response carries `Deprecation`, and raising an alert when the `Sunset` falls inside your next release cycle. Deprecated operations are also marked `deprecated: true` in this document, so a generated client can flag them.  # Support  Every response carries a **`CN-Message-Id`** header, our identifier for that request. Quote it when you contact Support about a call and we can find the exact request. It is on error responses too. We issue it; you can't set it. For your own handle on a write, use `Idempotency-Key`.  For help with the API, email support@checknetworks.com.au. Our team can answer questions and help you understand the API, but can't write your integration for you.
+ * The Check Networks API lets you run your services from your own systems: qualify and order NBN and Opticomm data services, manage phone numbers, SIP trunks and SMS, raise support tickets, receive webhooks, and read your account and billing.  This is the reference: every endpoint and webhook, with the scope it needs, its parameters, its responses and request samples. How the API works, the guides and the client libraries are on the [developer site](https://api.checknetworks.tools/docs/):  - [Quick start](https://api.checknetworks.tools/docs/start/quick-start/):   a key, a token and a first call against the sandbox. - [Conventions](https://api.checknetworks.tools/docs/concepts/conventions/):   names, money, lists, time zones and the error body. - [Errors](https://api.checknetworks.tools/docs/concepts/errors/),   [retrying writes safely](https://api.checknetworks.tools/docs/concepts/idempotency/),   [rate limits](https://api.checknetworks.tools/docs/concepts/limits/) and   [versions and deprecation](https://api.checknetworks.tools/docs/concepts/versioning/). - [Webhooks](https://api.checknetworks.tools/docs/webhooks/webhooks/) and   every [event type](https://api.checknetworks.tools/docs/webhooks/event-types/). - [Client libraries](https://api.checknetworks.tools/docs/sdks/client-libraries/)   for PHP, Python and JavaScript, and the   [changelog](https://api.checknetworks.tools/docs/reference/changelog/).  Endpoints marked **Coming Soon** are published early so you can build against them. Until they go live they answer `501 - Not Implemented`.  For help with the API, email support@checknetworks.com.au and quote the `CN-Message-Id` header of the response.
  *
- * The version of the OpenAPI document: 2.0.0-pre.6
+ * The version of the OpenAPI document: 2.0.0-pre.7
  * Contact: support@checknetworks.com.au
  * Generated by: https://openapi-generator.tech
  * Generator version: 7.26.0
@@ -36,7 +36,7 @@ use \CheckNetworks\ObjectSerializer;
  * DataOrderCreate Class Doc Comment
  *
  * @category Class
- * @description A Connect order for any data network. Take each value from the Service Qualification for the location (GET /data/sq/{locId}).
+ * @description A Connect order for any data network. Take each value from the Service Qualification for the location, from &#x60;GET /data/sq/{locId}&#x60;.
  * @package  CheckNetworks
  * @author   OpenAPI Generator team
  * @link     https://openapi-generator.tech
@@ -644,7 +644,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets loc_id
      *
-     * @param string $loc_id The premises: an NBN Location ID (LOC…) or an Opticomm Property ID (OPC…). The location decides which network and product the order is placed as.
+     * @param string $loc_id The premises. It is an NBN Location ID (LOC…) or an Opticomm Property ID (OPC…). The location decides which network and product the order is placed as.
      *
      * @return self
      */
@@ -740,7 +740,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets tags
      *
-     * @param string[]|null $tags Your own tags on the order, carried to the service it builds (see PUT /data/services/{ref}/tags). Each is trimmed, at most 255 characters, matched ignoring case; at most 20. Checked before anything is sent to the carrier. A retry under the same `orderReference` keeps the tags the order was placed with.
+     * @param string[]|null $tags Your own tags on the order. They carry over to the service the order builds. See `PUT /data/services/{ref}/tags`. We trim each tag. A tag can be at most 255 characters, and tags match ignoring case. You can send at most 20. We check them before anything is sent to the carrier. A retry under the same `orderReference` keeps the tags the order was placed with.
      *
      * @return self
      */
@@ -770,7 +770,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets external_ref
      *
-     * @param string|null $external_ref Your own reference for the data service this order builds, held on the order and set on the service when it is built (see PATCH /data/services/{ref}). One another of your data services holds, or another open order holds for its service, is a 422 before anything is sent to the carrier. A retry under the same `orderReference` keeps the reference the order was placed with.
+     * @param string|null $external_ref Your own reference for the data service this order builds. We hold it on the order and set it on the service when the service is built. See `PATCH /data/services/{ref}`. A reference that another of your data services holds, or another open order holds for its service, is a 422 before anything is sent to the carrier. A retry under the same `orderReference` keeps the reference the order was placed with.
      *
      * @return self
      */
@@ -885,7 +885,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets resource_id
      *
-     * @param string|null $resource_id (Optional) One of the `resources` from the Service Qualification: the NTD or OTD port, or the copper pair, the service runs on. Leave it out and we choose: the next free port on an installed NTD; on copper, the one spare pair, or a new line where there is none. Where no NTD is installed, the order waits for an appointment (`order.appointmentRequired`). Where every port is in use, it waits for you to choose a new NTD or a port to take over (`order.ntdFull`): we never order a second NTD unasked. Required on copper with more than one spare pair.
+     * @param string|null $resource_id Optional. One of the `resources` from the Service Qualification. It is the NTD or OTD port, or the copper pair, the service runs on. Leave it out and we choose. We take the next free port on an installed NTD. On copper we take the one spare pair, or a new line where there is none. Where no NTD is installed, the order waits for an appointment (`order.appointmentRequired`). Where every port is in use, the order waits for you to choose a new NTD or a port to take over (`order.ntdFull`). We never order a second NTD unasked. Required on copper with more than one spare pair.
      *
      * @return self
      */
@@ -916,7 +916,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets appointment_id
      *
-     * @param string|null $appointment_id (Optional) An appointment you reserved for this location, where the order needs a technician. Without one, such an order waits for it (see `order.appointmentRequired`).
+     * @param string|null $appointment_id Optional. An appointment you reserved for this location, for an order that needs a technician. Without one, such an order waits for it (see `order.appointmentRequired`).
      *
      * @return self
      */
@@ -947,7 +947,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets preferred_appointment_date
      *
-     * @param \DateTime|null $preferred_appointment_date (Optional) The first day you would like a technician, should the order need one: today or later, on your account's time zone (or the one you sent in `CN-Time-Zone`). The order's timeslots read (GET /data/orders/{orderId}/timeslots) starts here.
+     * @param \DateTime|null $preferred_appointment_date Optional. The first day you would like a technician, if the order needs one. It is today or later, in your account's time zone, or the one you sent in `CN-Time-Zone`. The order's timeslots read (`GET /data/orders/{orderId}/timeslots`) starts here.
      *
      * @return self
      */
@@ -974,7 +974,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets pots_interconnect
      *
-     * @param string|null $pots_interconnect (Conditional, copper) The Full National Number (FNN) or Unconditioned Local Loop (ULL) of the phone service being transitioned. Required for an Active Service Class 12 pair, and must not be sent otherwise.
+     * @param string|null $pots_interconnect Copper only. The Full National Number (FNN) or Unconditioned Local Loop (ULL) of the phone service being transitioned. Required for an Active Service Class 12 pair. Do not send it otherwise.
      *
      * @return self
      */
@@ -1005,7 +1005,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets priority_assist
      *
-     * @param bool|null $priority_assist (Optional) Sent to the carrier as its priority assist flag. \"true\" is accepted only for an `endUser` on our Priority Assistance register, or with no `endUser` for your own account or your own end user (made when you register yourself), never another end user's; otherwise the order is refused with a 422 on `priorityAssist` before anything is drafted. A `newEndUser` is never on the register.
+     * @param bool|null $priority_assist Optional. We send it to the carrier as its priority assist flag. We accept `true` only for an `endUser` on our Priority Assistance register. With no `endUser`, we accept it for your own account or your own end user, which we make when you register yourself, and never for another end user's. Otherwise we refuse the order with a 422 on `priorityAssist` before anything is drafted. A `newEndUser` is never on the register.
      *
      * @return self
      */
@@ -1032,7 +1032,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets end_user
      *
-     * @param string|null $end_user (Optional) The end user the service is for, by its public number. The service, its charges and its usage are then theirs, as an order placed in the portal for them. One of your end users that is not archived; any other number is a 422 and no order is placed.
+     * @param string|null $end_user Optional. The end user the service is for, by its public number. The service, its charges and its usage are then theirs, as for an order placed in the portal for them. It must be one of your end users and not archived. Any other number is a 422 and we place no order.
      *
      * @return self
      */
@@ -1070,7 +1070,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets occupancy_document_id
      *
-     * @param string|null $occupancy_document_id (Optional) On an NBN Connect Outstanding, the `id` of a proof of occupancy uploaded with `POST /data/occupancy-documents`, instead of the old service's id: evidence that the end user occupies the premises. It is kept with the order, and each one is used by one order: a retry with the same `orderReference` may name it again. A retry after a call that stopped before the order was sent keeps it with the order before sending it, unless the order already keeps one. Not with `serviceRef`; another account's, or one another order used, is a 422.
+     * @param string|null $occupancy_document_id Optional. For an NBN Connect Outstanding, the `id` of a proof of occupancy you uploaded with `POST /data/occupancy-documents`. Send it instead of the old service's id. It is evidence that the end user occupies the premises. We keep it with the order, and one order uses each document. A retry with the same `orderReference` may name it again. A retry after a call that stopped before the order was sent keeps it with the order before sending the order, unless the order already keeps one. Do not send it with `serviceRef`. Another account's document, or one another order used, is a 422.
      *
      * @return self
      */
@@ -1097,7 +1097,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets bundle_id
      *
-     * @param string|null $bundle_id (Optional) An open bundle to add the order to, as a draft that is placed when the bundle is submitted. A bundle that has been submitted, or is not yours, is a 422. A bundle that already holds 200 draft orders, the most one may, is a 422 with code `bundle_draft_limit`, and no draft is made.
+     * @param string|null $bundle_id Optional. An open bundle to add the order to. The order goes in as a draft, and we place it when the bundle is submitted. A bundle that has been submitted, or is not yours, is a 422. A bundle already holds 200 draft orders at most. Past that it is a 422 with code `bundle_draft_limit`, and we make no draft.
      *
      * @return self
      */
@@ -1124,7 +1124,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets new_end_user
      *
-     * @param object|null $new_end_user (Optional) A new end user to make and order for in this one call, instead of `endUser`; never both. It takes the same fields and rules as creating an end user. Both parts are checked before anything is made; if the order is refused, the end user is not kept and the answer is the order's 422. The end user's welcome email goes only once the order is accepted. A retry with the same Idempotency-Key returns the same end user and order. The response's `endUser` is the new end user's number.
+     * @param object|null $new_end_user Optional. A new end user to make and order for in this one call. Send it instead of `endUser`, never both. It takes the same fields and rules as creating an end user. We check both parts before we make anything. If we refuse the order, we do not keep the end user, and the answer is the order's 422. The end user's welcome email goes only once we accept the order. A retry with the same Idempotency-Key returns the same end user and order. The response's `endUser` is the new end user's number.
      *
      * @return self
      */
@@ -1151,7 +1151,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets end_user_type
      *
-     * @param string|null $end_user_type (Optional) What the carrier is told the premises is. Left out, it is taken from the end user's own type, as the portal does.
+     * @param string|null $end_user_type Optional. What we tell the carrier the premises is. Left out, it is taken from the end user's own type, as the portal does.
      *
      * @return self
      */
@@ -1195,7 +1195,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets addons
      *
-     * @param \CheckNetworks\Model\DataOrderCreateAddonsInner[]|null $addons (Optional) The add-on products to sell with the service, each with a quantity. Only the add-ons the portal offers for the chosen plan may be sent; any other is a 422. Left out, the order carries the plan's default add-ons, as the portal ticks them; an empty list carries none. Each starts billing when the carrier accepts the order.
+     * @param \CheckNetworks\Model\DataOrderCreateAddonsInner[]|null $addons Optional. The add-on products to sell with the service, each with a quantity. You can send only the add-ons the portal offers for the chosen plan. Any other is a 422. Left out, the order carries the plan's default add-ons, as the portal ticks them. An empty list carries none. Each starts billing when the carrier accepts the order.
      *
      * @return self
      */
@@ -1232,7 +1232,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets restoration_sla_sku
      *
-     * @param string|null $restoration_sla_sku (Optional, NBN) The restoration SLA, one the chosen plan allows at this location; the standard SLA when left out. Refused on an Opticomm order.
+     * @param string|null $restoration_sla_sku Optional, NBN only. The restoration SLA. It must be one the chosen plan allows at this location. The standard SLA applies when you leave it out. We refuse it on an Opticomm order.
      *
      * @return self
      */
@@ -1270,7 +1270,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets static_ip
      *
-     * @param bool|null $static_ip (Optional) A static IPv4 address rather than one from the dynamic pool. A monthly charge applies.
+     * @param bool|null $static_ip Optional. A static IPv4 address, rather than one from the dynamic pool. A monthly charge applies.
      *
      * @return self
      */
@@ -1297,7 +1297,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets ipv6
      *
-     * @param bool|null $ipv6 (Optional) IPv6 (a framed /64 and a delegated prefix). Free, and on unless you turn it off.
+     * @param bool|null $ipv6 Optional. IPv6, with a framed /64 and a delegated prefix. It is free, and on unless you turn it off.
      *
      * @return self
      */
@@ -1324,7 +1324,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets install
      *
-     * @param string|null $install (Optional) How the service reaches the premises:  - `existing`: on a port or pair already there (`resourceId`, or the one we choose). - `new`: a new NTD, OTD or copper pair, where the Service Qualification offers a new install. - `additional`: another NTD, OTD or pair beside the ones in use, where it offers an additional install. - `fibreUplift`: (NBN) a Fibre Uplift, where the Service Qualification says `upliftAvailable`: nbn replaces the premises' copper (FTTN, FTTB or FTTC) access with fibre, on a new NTD. A 12-month term applies.  A `new` or `additional` install takes no `resourceId` and needs a technician appointment, on NBN and Opticomm alike: without an `appointmentId` the order waits for one (`order.appointmentRequired`). It is a 422 where the location does not offer it.  A `fibreUplift` takes no `resourceId`, `transferType` or `serviceRef`, and is ordered on an uplift plan: a `bandwidthProductSku` ending `-UPL`. Any other plan is a 422, and an uplift plan on any other order is too. nbn's own uplift qualification (GET /nbn/service_qualification/fibre_uplift) is read again before the order is drafted, and a location it no longer offers is a 422. A technician installs the NTD: without an `appointmentId` the order waits for one (`order.appointmentRequired`). Its timeslots (GET /data/orders/{orderId}/timeslots) are the uplift's own; reserve one with `alternativeTechnology` `Fibre` (POST /nbn/appointments/reserve).
+     * @param string|null $install Optional. How the service reaches the premises.  - `existing` is a port or pair already there. Name it in `resourceId`, or we choose. - `new` is a new NTD, OTD or copper pair, where the Service Qualification offers a new install. - `additional` is another NTD, OTD or pair beside the ones in use, where the Service Qualification offers an additional install. - `fibreUplift` is NBN only. It is a Fibre Uplift, where the Service Qualification says `upliftAvailable`. nbn replaces the premises' copper access (FTTN, FTTB or FTTC) with fibre, on a new NTD. A 12-month term applies.  A `new` or `additional` install takes no `resourceId`. It needs a technician appointment, on NBN and Opticomm alike. Without an `appointmentId` the order waits for one (`order.appointmentRequired`). It is a 422 where the location does not offer it.  A `fibreUplift` takes no `resourceId`, `transferType` or `serviceRef`. You order it on an uplift plan, which is a `bandwidthProductSku` ending `-UPL`. Any other plan is a 422. An uplift plan on any other order is a 422 too. We read nbn's own uplift qualification (`GET /nbn/service_qualification/fibre_uplift`) again before we draft the order. A location it no longer offers is a 422. A technician installs the NTD. Without an `appointmentId` the order waits for one (`order.appointmentRequired`). The timeslots from `GET /data/orders/{orderId}/timeslots` are the uplift's own. Reserve one with `alternativeTechnology` `Fibre` on `POST /nbn/appointments/reserve`.
      *
      * @return self
      */
@@ -1361,7 +1361,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets transfer_type
      *
-     * @param string|null $transfer_type (Optional) Take over a service another provider has at the premises, in this one call. On NBN, as the NBN order routes take it, with `serviceRef` and `customerAuthorityDate`. On Opticomm, `Service Transfer` or `Service Transfer Reversal` with `customerAuthorityDate` and no `serviceRef`.
+     * @param string|null $transfer_type Optional. Takes over a service another provider has at the premises, in this one call. On NBN, send it as the NBN order routes take it, with `serviceRef` and `customerAuthorityDate`. On Opticomm, send `Service Transfer` or `Service Transfer Reversal` with `customerAuthorityDate` and no `serviceRef`.
      *
      * @return self
      */
@@ -1405,7 +1405,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets service_ref
      *
-     * @param string|null $service_ref (Conditional, NBN transfer) The AVC of the service being taken over.
+     * @param string|null $service_ref The AVC of the service being taken over. For an NBN transfer only.
      *
      * @return self
      */
@@ -1443,7 +1443,7 @@ class DataOrderCreate implements ModelInterface, ArrayAccess, \JsonSerializable
     /**
      * Sets customer_authority_date
      *
-     * @param \DateTime|null $customer_authority_date (Conditional, transfer) The day the end user authorised the transfer. Required with `transferType`. Today or earlier, on your account's time zone (or the one you sent in `CN-Time-Zone`).
+     * @param \DateTime|null $customer_authority_date The day the end user authorised the transfer. Required with `transferType`. It is today or earlier, in your account's time zone, or the one you sent in `CN-Time-Zone`.
      *
      * @return self
      */

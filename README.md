@@ -33,7 +33,7 @@ Build against the **sandbox** first: a separate copy of the platform where
 nothing reaches a carrier. Its base URL is `https://api.checknetworks.dev/v2`.
 Ask your Account Manager for one, then create an API key in the sandbox portal
 under **Company Settings → Integrations → API Keys**. A sandbox secret starts
-`cn_test_`. See [The API sandbox](https://help.checknetworks.tools/api/sandbox/).
+`cn_test_`. See [The API sandbox](https://api.checknetworks.tools/docs/start/sandbox/).
 
 ## Token, ping and a first read
 
@@ -86,8 +86,8 @@ Guzzle client itself, signing in and retrying, for a call of your own.
 
 ## More
 
-- [API reference](https://api.checknetworks.tools/docs): every endpoint, its scope and fields
-- [Getting started, errors and limits](https://help.checknetworks.tools/api/overview/)
+- [API reference](https://api.checknetworks.tools/docs/reference/): every endpoint, its scope and fields
+- [Getting started, errors and limits](https://api.checknetworks.tools/docs/start/overview/)
 - Support: support@checknetworks.com.au. Quote the `CN-Message-Id` header of the call.
 
 ## Licence

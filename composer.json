@@ -3,7 +3,7 @@
     "description": "The official PHP client for the Check Networks API.",
     "type": "library",
     "keywords": ["checknetworks", "nbn", "opticomm", "sip", "api", "sdk"],
-    "homepage": "https://help.checknetworks.tools/api/overview/",
+    "homepage": "https://api.checknetworks.tools/docs/",
     "license": "MIT",
     "support": {
         "email": "support@checknetworks.com.au",
