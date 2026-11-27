@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CheckNetworks\Api;
+namespace CheckNetworks;
 
 use GuzzleHttp\Middleware as GuzzleMiddleware;
 use Psr\Http\Message\RequestInterface;

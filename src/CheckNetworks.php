@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace CheckNetworks\Api;
+namespace CheckNetworks;
 
-use CheckNetworks\Api\Generated\Configuration;
 use GuzzleHttp\Client as Guzzle;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\HandlerStack;
@@ -17,7 +16,8 @@ use InvalidArgumentException;
  *     $cn = CheckNetworks::create($clientId, $clientSecret, 'account:read');
  *     $ping = $cn->api(AuthenticationApi::class)->ping();
  *
- * Hand-written; the API classes under src/Generated are generated from the
+ * Hand-written, as are AuthException, Middleware and TokenProvider; src/Api,
+ * src/Model and the other files beside this one are generated from the
  * OpenAPI document.
  */
 final class CheckNetworks

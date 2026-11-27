@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CheckNetworks\Api;
+namespace CheckNetworks;
 
 use GuzzleHttp\Client as Guzzle;
 use GuzzleHttp\ClientInterface;
@@ -13,7 +13,7 @@ use GuzzleHttp\RequestOptions;
  * until shortly before it expires. A token lasts an hour; asking for one per
  * call would run into POST /oauth/token's own limit of 30 a minute.
  *
- * This file is hand-written; everything under src/Generated is generated.
+ * This file is hand-written; src/Api and src/Model are generated.
  */
 final class TokenProvider
 {

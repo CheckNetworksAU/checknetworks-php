@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use CheckNetworks\Api\AuthException;
-use CheckNetworks\Api\CheckNetworks;
-use CheckNetworks\Api\Generated\Api\AuthenticationApi;
+use CheckNetworks\Api\AuthenticationApi;
+use CheckNetworks\AuthException;
+use CheckNetworks\CheckNetworks;
 
 // Runs in the release build (#4916) against tests/fake-server.php, a
 // stand-in for the API on a local port: nothing here reaches Check Networks.

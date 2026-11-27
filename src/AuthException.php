@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CheckNetworks\Api;
+namespace CheckNetworks;
 
 use RuntimeException;
 

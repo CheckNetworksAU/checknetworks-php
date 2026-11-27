@@ -18,11 +18,11 @@ The client's version is the API document's version.
 ## Install
 
 ```
-composer require checknetworks/api
+composer require checknetworks/checknetworks-php
 ```
 
 Until the API's launch the client is a pre-release, which Composer installs
-only when asked: `composer require checknetworks/api:^2.0@RC`. The API's
+only when asked: `composer require checknetworks/checknetworks-php:^2.0@RC`. The API's
 `2.0.0-pre.3` is Composer's `2.0.0-RC3`.
 
 PHP 8.1 or later, with the curl, json and mbstring extensions. It uses Guzzle 7.
@@ -38,9 +38,9 @@ under **Company Settings → Integrations → API Keys**. A sandbox secret start
 ## Token, ping and a first read
 
 ```php
-use CheckNetworks\Api\CheckNetworks;
-use CheckNetworks\Api\Generated\Api\AccountApi;
-use CheckNetworks\Api\Generated\Api\AuthenticationApi;
+use CheckNetworks\Api\AccountApi;
+use CheckNetworks\Api\AuthenticationApi;
+use CheckNetworks\CheckNetworks;
 
 $cn = CheckNetworks::create(
     clientId: getenv('CN_CLIENT_ID'),
@@ -67,13 +67,14 @@ sandbox and `cn_live_` production. In production every call runs against your
 real account, and a carrier write places a real order.
 
 Every endpoint is a method on one of the classes in
-`CheckNetworks\Api\Generated\Api`, one class per tag of the reference;
+`CheckNetworks\Api`, one class per tag of the reference;
 `$cn->api(SomeApi::class)` gives you one that signs in and retries. Each
 method also has a `…WithHttpInfo` form that returns the status and headers, and
 an `…Async` form. An error answer throws
-`CheckNetworks\Api\Generated\ApiException`, with the error body in
+`CheckNetworks\ApiException`, with the error body in
 `getResponseObject()`. A refused token request throws
-`CheckNetworks\Api\AuthException`.
+`CheckNetworks\AuthException`. What a call returns is a class in
+`CheckNetworks\Model`.
 
 ## Options
 

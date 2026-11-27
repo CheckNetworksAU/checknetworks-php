@@ -1,5 +1,5 @@
 {
-    "name": "checknetworks/api",
+    "name": "checknetworks/checknetworks-php",
     "description": "The official PHP client for the Check Networks API.",
     "type": "library",
     "keywords": ["checknetworks", "nbn", "opticomm", "sip", "api", "sdk"],
@@ -22,7 +22,7 @@
     },
     "autoload": {
         "psr-4": {
-            "CheckNetworks\\Api\\": "src/"
+            "CheckNetworks\\": "src/"
         }
     },
     "scripts": {
